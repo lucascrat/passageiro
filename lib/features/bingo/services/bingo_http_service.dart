@@ -42,12 +42,15 @@ class BingoHttpService implements BingoRealtimeService {
     try {
       // Buscar jogo ativo
       final gameResponse = await http.get(
-        Uri.parse('$baseUrl/api/admin/games'),
+        Uri.parse('$baseUrl/api/android/games'),
         headers: {'Content-Type': 'application/json'},
       );
 
       if (gameResponse.statusCode == 200) {
-        final games = jsonDecode(gameResponse.body) as List;
+        final payload = jsonDecode(gameResponse.body);
+        final games = (payload is Map && payload['games'] is List)
+            ? payload['games'] as List
+            : <dynamic>[];
         final activeGame = games.firstWhere(
           (game) => game['status'] == 'active',
           orElse: () => null,
@@ -56,17 +59,20 @@ class BingoHttpService implements BingoRealtimeService {
         if (activeGame != null) {
           _currentGameId = activeGame['id'];
           
-          // Buscar números sorteados
-          final numbersResponse = await http.get(
-            Uri.parse('$baseUrl/api/admin/games/$_currentGameId/drawn-numbers'),
+          // Buscar números sorteados (detalhe do jogo)
+          final gameDetailResponse = await http.get(
+            Uri.parse('$baseUrl/api/android/games/$_currentGameId'),
             headers: {'Content-Type': 'application/json'},
           );
 
-          if (numbersResponse.statusCode == 200) {
-            final numbersData = jsonDecode(numbersResponse.body);
-            final drawnNumbers = (numbersData['drawnNumbers'] as List)
-                .map((n) => n['number'] as int)
-                .toList();
+          if (gameDetailResponse.statusCode == 200) {
+            final detailPayload = jsonDecode(gameDetailResponse.body);
+            final gameObj = (detailPayload is Map) ? detailPayload['game'] : null;
+            final drawnNumbers = (gameObj != null && gameObj['drawn_numbers'] is List)
+                ? (gameObj['drawn_numbers'] as List)
+                    .map((n) => n['number'] as int)
+                    .toList()
+                : <int>[];
             _lastDrawnNumbers = drawnNumbers;
           }
 
@@ -105,6 +111,34 @@ class BingoHttpService implements BingoRealtimeService {
   }
 
   Future<void> _pollUpdates() async {
+    // Detectar troca de jogo ativo e sincronizar
+    try {
+      final gamesResp = await http.get(
+        Uri.parse('$baseUrl/api/android/games'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (gamesResp.statusCode == 200) {
+        final payload = jsonDecode(gamesResp.body);
+        final games = (payload is Map && payload['games'] is List)
+            ? payload['games'] as List
+            : <dynamic>[];
+        final activeGame = games.firstWhere(
+          (game) => game['status'] == 'active',
+          orElse: () => null,
+        );
+        final newActiveId = activeGame != null ? activeGame['id'] as String : null;
+        if (newActiveId != null && newActiveId != _currentGameId) {
+          _currentGameId = newActiveId;
+          _lastDrawnNumbers = [];
+          _lastPrize = null;
+          await _syncState();
+          return;
+        }
+      }
+    } catch (_) {
+      // ignorar erros transitórios
+    }
+
     if (_currentGameId == null) return;
 
     try {
