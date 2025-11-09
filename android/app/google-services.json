@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "588981717038",
+    "project_id": "chegoja-android",
+    "storage_bucket": "chegoja-android.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:588981717038:android:f905e39a1d166d70ff77bf",
+        "android_client_info": {
+          "package_name": "com.chegoja.motorista"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChaMRGega-74DtJUDvi-iDiLW8s-SzUgY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:588981717038:android:ab53ce8f28acc5a4ff77bf",
+        "android_client_info": {
+          "package_name": "com.chegoja.passageiro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChaMRGega-74DtJUDvi-iDiLW8s-SzUgY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
