@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../models/bingo_models.dart';
 import 'bingo_realtime_service.dart';
 
@@ -113,26 +114,28 @@ class BingoHttpService implements BingoRealtimeService {
   Future<void> _pollUpdates() async {
     // Detectar troca de jogo ativo e sincronizar
     try {
-      final gamesResp = await http.get(
-        Uri.parse('$baseUrl/api/android/games'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      if (gamesResp.statusCode == 200) {
-        final payload = jsonDecode(gamesResp.body);
-        final games = (payload is Map && payload['games'] is List)
-            ? payload['games'] as List
-            : <dynamic>[];
-        final activeGame = games.firstWhere(
-          (game) => game['status'] == 'active',
-          orElse: () => null,
+      if (kDebugMode) {
+        final gamesResp = await http.get(
+          Uri.parse('$baseUrl/api/android/games'),
+          headers: {'Content-Type': 'application/json'},
         );
-        final newActiveId = activeGame != null ? activeGame['id'] as String : null;
-        if (newActiveId != null && newActiveId != _currentGameId) {
-          _currentGameId = newActiveId;
-          _lastDrawnNumbers = [];
-          _lastPrize = null;
-          await _syncState();
-          return;
+        if (gamesResp.statusCode == 200) {
+          final payload = jsonDecode(gamesResp.body);
+          final games = (payload is Map && payload['games'] is List)
+              ? payload['games'] as List
+              : <dynamic>[];
+          final activeGame = games.firstWhere(
+            (game) => game['status'] == 'active',
+            orElse: () => null,
+          );
+          final newActiveId = activeGame != null ? activeGame['id'] as String : null;
+          if (newActiveId != null && newActiveId != _currentGameId) {
+            _currentGameId = newActiveId;
+            _lastDrawnNumbers = [];
+            _lastPrize = null;
+            await _syncState();
+            return;
+          }
         }
       }
     } catch (_) {
