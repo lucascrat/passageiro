@@ -133,6 +133,8 @@ class BingoHttpService implements BingoRealtimeService {
             _currentGameId = newActiveId;
             _lastDrawnNumbers = [];
             _lastPrize = null;
+            // Notificar clientes para resetar cartelas e estado local
+            _controller.add(BingoEvent(BingoEventType.resetGame, {}));
             await _syncState();
             return;
           }
