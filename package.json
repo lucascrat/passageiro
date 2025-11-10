@@ -1,0 +1,7 @@
+{
+  "name": "passageiro-root",
+  "private": true,
+  "scripts": {
+    "vercel-build": "cd bingo-admin-web && pnpm install --no-frozen-lockfile && pnpm build --no-lint"
+  }
+}
