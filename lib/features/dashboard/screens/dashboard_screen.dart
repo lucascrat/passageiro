@@ -85,9 +85,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               PageStorage(bucket: bucket, child: item[menuController.currentTab].screen),
 
               Positioned(child: Align(alignment: Alignment.bottomCenter,
-                child: Padding(padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault, vertical: 8),
-                  child: Container(height: 45, // Reduzir de 65 para 45 pixels
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), // Reduzir border radius
+                child: Padding(padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault, vertical: 12),
+                  child: Container(height: 70,
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(18),
                       color: Theme.of(context).primaryColor,
                       boxShadow: [BoxShadow(offset: const Offset(0,4), blurRadius: 3, color: Colors.black.withValues(alpha:0.3))],
                     ),
@@ -153,14 +153,13 @@ class CustomMenuItem extends StatelessWidget {
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
       onTap: onTap,
-      child: Padding(padding: const EdgeInsets.all(4), // Reduzir padding de 8 para 4
-        child: SizedBox(width: isSelected ? 70 : 40, child: Column(crossAxisAlignment: CrossAxisAlignment.center, // Reduzir larguras
+      child: Padding(padding: const EdgeInsets.all(8),
+        child: SizedBox(width: isSelected ? 90 : 56, child: Column(crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-
-            Image.asset(isSelected ? activeIcon : inActiveIcon, width: 20, height: 20,), // Reduzir tamanho do ícone
+            Image.asset(isSelected ? activeIcon : inActiveIcon, width: 28, height: 28,),
 
             isSelected ? Text(name.tr, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: textRegular.copyWith(color: Colors.white, fontSize: 10)) : const SizedBox(), // Reduzir fonte
+              style: textRegular.copyWith(color: Colors.white, fontSize: 12)) : const SizedBox(),
 
           ],
         )),

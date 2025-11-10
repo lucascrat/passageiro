@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../models/rifa_models.dart';
 import '../services/rifa_service.dart';
-import '../../dashboard/controllers/bottom_menu_controller.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../profile/controllers/profile_controller.dart';
 import 'package:uuid/uuid.dart';
@@ -16,29 +15,34 @@ class RifaController extends GetxController {
   final RxBool isLoadingVideo = false.obs;
   final RxBool isGeneratingNumbers = false.obs;
   final RxBool isPlayingTeimozinha = false.obs;
-  
+
   final RxList<VideoPremiado> videosPremiados = <VideoPremiado>[].obs;
   final RxList<RifaParticipacao> participacoes = <RifaParticipacao>[].obs;
   final RxList<RifaNumero> numerosGerados = <RifaNumero>[].obs;
-  final RxList<TeimozinhaTentativa> tentativasTeimozinha = <TeimozinhaTentativa>[].obs;
+  final RxList<TeimozinhaTentativa> tentativasTeimozinha =
+      <TeimozinhaTentativa>[].obs;
   final RxList<Sorteio> sorteiosAtivos = <Sorteio>[].obs;
-  
+
   final Rx<VideoPremiado?> videoAtual = Rx<VideoPremiado?>(null);
   final RxMap<String, String> configuracoes = <String, String>{}.obs;
-  
+
   final RxBool podeParticipar = true.obs;
   final RxBool podeJogarTeimozinha = true.obs;
   final RxInt participacoesHoje = 0.obs;
   final RxInt tentativasTeimozinhaHoje = 0.obs;
-  
+
   // Configurações AdMob - IDs de produção
   final RxString admobAppId = 'ca-app-pub-6105194579101073~4559648681'.obs;
-  final RxString admobRewardedUnitId = 'ca-app-pub-6105194579101073/5241543417'.obs;
-  final RxString admobNativeUnitId = 'ca-app-pub-6105194579101073/9352565859'.obs;
-  final RxString admobInterstitialUnitId = 'ca-app-pub-6105194579101073/8690220873'.obs;
-  final RxString admobBannerUnitId = 'ca-app-pub-6105194579101073~4559648681'.obs;
+  final RxString admobRewardedUnitId =
+      'ca-app-pub-6105194579101073/5241543417'.obs;
+  final RxString admobNativeUnitId =
+      'ca-app-pub-6105194579101073/9352565859'.obs;
+  final RxString admobInterstitialUnitId =
+      'ca-app-pub-6105194579101073/8690220873'.obs;
+  final RxString admobBannerUnitId =
+      'ca-app-pub-6105194579101073~4559648681'.obs;
   final RxInt admobNumerosPorAnuncio = 3.obs;
-  
+
   // IDs de teste para desenvolvimento
   final RxBool useTestAds = true.obs; // Manter em modo de teste por enquanto
 
@@ -52,7 +56,7 @@ class RifaController extends GetxController {
   Future<void> _initializeData() async {
     try {
       isLoading.value = true;
-      
+
       await Future.wait([
         loadVideosPremiados(),
         loadConfiguracoes(),
@@ -80,7 +84,7 @@ class RifaController extends GetxController {
     try {
       final videos = await _rifaService.getVideosPremiados();
       videosPremiados.value = videos;
-      
+
       if (videos.isNotEmpty) {
         videoAtual.value = videos.first;
       }
@@ -94,10 +98,11 @@ class RifaController extends GetxController {
     try {
       final configs = await _rifaService.getConfiguracoes();
       configuracoes.value = configs;
-      
+
       // Usar IDs fixos do AdMob (não dependem mais do banco de dados)
       // Os IDs já estão definidos nas variáveis observáveis
-      admobNumerosPorAnuncio.value = int.parse(configs['admob_numeros_por_anuncio'] ?? '3');
+      admobNumerosPorAnuncio.value =
+          int.parse(configs['admob_numeros_por_anuncio'] ?? '3');
     } catch (e) {
       _showError('Erro ao carregar configurações: $e');
     }
@@ -223,9 +228,10 @@ class RifaController extends GetxController {
 
       // Atualizar listas
       participacoes.insert(0, participacao);
-      
+
       // Carregar números gerados
-      final numeros = await _rifaService.getNumerosParticipacao(participacao.id);
+      final numeros =
+          await _rifaService.getNumerosParticipacao(participacao.id);
       numerosGerados.value = numeros;
 
       // Atualizar permissões
@@ -274,14 +280,14 @@ class RifaController extends GetxController {
 
       // Atualizar listas
       participacoes.insert(0, participacao);
-      
+
       // Carregar números reservados
-      final numeros = await _rifaService.getNumerosParticipacao(participacao.id);
+      final numeros =
+          await _rifaService.getNumerosParticipacao(participacao.id);
       numerosGerados.value = numeros;
 
       // Atualizar permissões
       await checkParticipacaoPermissions(userId);
-
     } catch (e) {
       throw Exception('Erro ao reservar números: $e');
     } finally {
@@ -364,7 +370,7 @@ class RifaController extends GetxController {
         if (profileController.profileModel?.data?.id != null) {
           return profileController.profileModel!.data!.id.toString();
         }
-        
+
         // Se não tiver ID do perfil, gerar um UUID baseado no token
         final token = authController.getUserToken();
         if (token.isNotEmpty) {
@@ -373,7 +379,7 @@ class RifaController extends GetxController {
           return uuid.v5(Uuid.NAMESPACE_URL, token);
         }
       }
-      
+
       // Fallback: gerar UUID aleatório para usuário anônimo
       final uuid = Uuid();
       return uuid.v4();

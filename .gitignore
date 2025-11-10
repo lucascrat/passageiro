@@ -45,3 +45,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Sensitive secrets and environment files
+.env
+.vercel/
+*.jks
+*.keystore
+*.der
+*.pem
+HLDEVELOPERS*
+appcli.keystore
+upload_cert.der

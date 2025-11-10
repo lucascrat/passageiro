@@ -1,4 +1,4 @@
-// Edge Function para gerar números da rifa após assistir anúncio AdMob
+flutter run --debug -d krlr6h4teitobecqrifa após assistir anúncio AdMob
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 

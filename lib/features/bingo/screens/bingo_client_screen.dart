@@ -34,6 +34,7 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
   bool _isInitializing = true;
   bool _isCheckingRegistration = true;
   final List<int> _drawnNumbers = [];
+  String? _activeGameId;
   
   // YouTube Player
   YoutubePlayerController? _youtubeController;
@@ -263,6 +264,8 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
       for (int i = 0; i < _cardManager.cardCount; i++) {
         _cardManager.generateNewCard(i);
       }
+      // Regra: ao mudar o sorteio, somente cartela 01 desbloqueada
+      _cardManager.lockAllExceptFirst();
     });
     _persistCards();
     
@@ -275,8 +278,24 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
 
   void _handleSyncState(Map<String, dynamic> data) {
     debugLog('🔄 Sincronizando estado inicial...');
+    final String? incomingGameId = data['gameId']?.toString();
     final drawnNumbers = List<int>.from(data['drawnNumbers'] ?? []);
     
+    // Detectar mudança de sorteio (gameId) e aplicar regra de bloqueio
+    if (incomingGameId != null && incomingGameId != _activeGameId) {
+      debugLog('🆕 Troca de sorteio detectada (gameId: $incomingGameId). Aplicando bloqueio de cartelas.');
+      setState(() {
+        // Regenerar todas as cartelas para garantir números novos
+        for (int i = 0; i < _cardManager.cardCount; i++) {
+          _cardManager.generateNewCard(i);
+        }
+        // Regra: somente cartela 01 desbloqueada ao trocar de sorteio
+        _cardManager.lockAllExceptFirst();
+        _activeGameId = incomingGameId;
+      });
+      _persistCards();
+    }
+
     setState(() {
       _drawnNumbers.clear();
       _drawnNumbers.addAll(drawnNumbers);
@@ -288,9 +307,15 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
       for (int i = 0; i < _cardManager.cardCount; i++) {
         _cardManager.generateNewCard(i);
       }
+      // Regra: ao mudar o sorteio, somente cartela 01 desbloqueada
+      _cardManager.lockAllExceptFirst();
       _persistCards();
       debugLog('🧼 Debug: cartelas reiniciadas ao sincronizar novo jogo sem números.');
     }
+
+    // Limpar todas as marcações antes de aplicar os números sincronizados
+    _cardManager.clearAllMarks();
+    _persistCards();
 
     // Marcar todos os números sorteados em todas as cartelas
     bool anyCardChanged = false;
@@ -302,6 +327,58 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
     if (anyCardChanged) {
       _persistCards();
       debugLog('✅ Estado sincronizado: ${drawnNumbers.length} números marcados em todas as cartelas');
+    }
+  }
+
+  // Botão oculto de teste: envia uma reivindicação de vitória fake
+  Future<void> _sendTestWin() async {
+    try {
+      String participantName = 'Cliente Mobile';
+      String? participantPhone;
+      String? participantId;
+      try {
+        if (_participantService != null) {
+          final p = await _participantService!.getCurrentParticipant();
+          if (p != null) {
+            if (p.name.trim().isNotEmpty) participantName = p.name.trim();
+            if (p.phone.trim().isNotEmpty) participantPhone = p.phone.trim();
+            participantId = p.id;
+          }
+        }
+      } catch (_) {}
+
+      final prizeTitle = _prize?.title ?? 'Prêmio atual';
+
+      final composedName = 'Teste: $participantName | Prêmio: $prizeTitle | Linha';
+
+      _service?.sendEvent(BingoEvent(BingoEventType.claimWin, {
+        'name': composedName,
+        'timestamp': DateTime.now().toIso8601String(),
+        if (participantId != null) 'participant_id': participantId,
+        'claim_type': 'line',
+        'participant': {
+          'name': participantName,
+          if (participantPhone != null) 'phone': participantPhone,
+        },
+        'prize': {
+          'title': prizeTitle,
+          'value': _prize?.value ?? '',
+          'imageUrl': _prize?.imageUrl ?? '',
+        },
+        'winDetails': {
+          'cards': [],
+        },
+      }));
+
+      Get.snackbar(
+        '🚀 Teste de Vitória',
+        'Reivindicação de teste enviada!',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      debugLog('Erro ao enviar teste de vitória: $e');
     }
   }
 
@@ -339,7 +416,7 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
     }
   }
 
-  void _claimBingo() {
+  Future<void> _claimBingo() async {
     final cardsWithBingo = _cardManager.getCardsWithBingo();
     if (cardsWithBingo.isEmpty) {
       Get.snackbar(
@@ -352,10 +429,84 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
       return;
     }
 
+    // Coletar informações do participante (se disponível)
+    String participantName = 'Cliente Mobile';
+    String? participantPhone;
+    String? participantId;
+    try {
+      if (_participantService != null) {
+        final p = await _participantService!.getCurrentParticipant();
+        if (p != null && p.name.trim().isNotEmpty) {
+          participantName = p.name.trim();
+          participantPhone = p.phone.trim().isNotEmpty ? p.phone.trim() : null;
+          participantId = p.id;
+        }
+      }
+    } catch (_) {}
+
+    // Prêmio atual
+    final prizeTitle = _prize?.title ?? 'Prêmio atual';
+
+    // Montar detalhes de vitória por cartela
+    final winningCards = cardsWithBingo.map((card) {
+      final summary = card.winSummary();
+      final index = _cardManager.cards.indexOf(card);
+      return {
+        'index': index, // 0..n
+        'id': card.id,
+        'rows': summary['rows'],
+        'cols': summary['cols'],
+        'diagMain': summary['diagMain'],
+        'diagAnti': summary['diagAnti'],
+        'fullCard': summary['fullCard'],
+        'numbers': card.numbers,
+        'marked': card.marked,
+      };
+    }).toList();
+
+    // Texto amigável para painel admin (compatível com uso atual de 'name')
+    final first = winningCards.first;
+    final linhas = (first['rows'] as List).map((i) => (i as int) + 1).join(', ');
+    final colMap = ['B', 'I', 'N', 'G', 'O'];
+    final colunas = (first['cols'] as List).map((i) => colMap[(i as int).clamp(0, 4)]).join(', ');
+    final cartelaCheia = (first['fullCard'] == true) ? 'Sim' : 'Não';
+    final composedName =
+        'Vencedor: $participantName | Prêmio: $prizeTitle | Linhas: ${linhas.isEmpty ? '-' : linhas} | Colunas: ${colunas.isEmpty ? '-' : colunas} | Cartela Cheia: $cartelaCheia';
+
+    // Derivar o tipo do bingo a partir do resumo
+    String claimType;
+    final hasFull = first['fullCard'] == true;
+    final hasLines = (first['rows'] as List).isNotEmpty;
+    final hasCols = (first['cols'] as List).isNotEmpty;
+    if (hasFull) {
+      claimType = 'full-card';
+    } else if (hasLines) {
+      claimType = 'line';
+    } else if (hasCols) {
+      claimType = 'column';
+    } else {
+      // Fallback defensivo
+      claimType = 'line';
+    }
+
     _service?.sendEvent(BingoEvent(BingoEventType.claimWin, {
-      'name': 'Cliente Mobile',
-      'cardIds': cardsWithBingo.map((card) => card.id).toList(),
+      'name': composedName,
       'timestamp': DateTime.now().toIso8601String(),
+      // Envio direto para bingo_claims via serviço Supabase
+      if (participantId != null) 'participant_id': participantId,
+      'claim_type': claimType,
+      'participant': {
+        'name': participantName,
+        if (participantPhone != null) 'phone': participantPhone,
+      },
+      'prize': {
+        'title': prizeTitle,
+        'value': _prize?.value ?? '',
+        'imageUrl': _prize?.imageUrl ?? '',
+      },
+      'winDetails': {
+        'cards': winningCards,
+      },
     }));
 
     Get.snackbar(
@@ -528,7 +679,7 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
           _youtubeController = YoutubePlayerController(
             initialVideoId: videoId,
             flags: const YoutubePlayerFlags(
-              autoPlay: false,
+              autoPlay: true,
               mute: false,
               enableCaption: true,
               loop: false,
@@ -704,6 +855,9 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
                               ),
                               onReady: () {
                                 debugLog('✅ Player do YouTube pronto');
+                                try {
+                                  _youtubeController?.play();
+                                } catch (_) {}
                               },
                               onEnded: (metaData) {
                                 debugLog('📺 Vídeo finalizado');
@@ -820,27 +974,31 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
                         child: Column(
                           children: [
                             // Status de Conexão
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: _connected ? Colors.green : Colors.red,
-                                    shape: BoxShape.circle,
+                            GestureDetector(
+                              onLongPress: _sendTestWin,
+                              behavior: HitTestBehavior.translucent,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: _connected ? Colors.green : Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _status,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: _connected ? Colors.green : Colors.red,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _status,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: _connected ? Colors.green : Colors.red,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                             
                             // Números Sorteados
@@ -1099,7 +1257,7 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
                                     ],
                                   ),
                                   child: FilledButton.icon(
-                                    onPressed: _claimBingo,
+                                    onPressed: () => _claimBingo(),
                                     style: FilledButton.styleFrom(
                                       backgroundColor: Colors.transparent,
                                       shadowColor: Colors.transparent,

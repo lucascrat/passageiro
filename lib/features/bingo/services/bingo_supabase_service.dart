@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/bingo_models.dart';
 import '../bingo_config.dart';
 import 'bingo_realtime_service.dart';
@@ -255,8 +257,9 @@ class BingoSupabaseService implements BingoRealtimeService {
       
       debugLog('📥 Números para sincronização: $drawnNumbers');
       
-      // Enviar evento syncState com todos os números de uma vez
+      // Enviar evento syncState com todos os números de uma vez, incluindo gameId
       _eventController.add(BingoEvent(BingoEventType.syncState, {
+        'gameId': _currentGameId,
         'drawnNumbers': drawnNumbers,
       }));
       
@@ -374,10 +377,43 @@ class BingoSupabaseService implements BingoRealtimeService {
 
       switch (event.type) {
         case BingoEventType.claimWin:
-          debugLog('Enviando claim de vitória...');
-          await _client.from('winners').insert({
+          debugLog('Enviando claim de vitória para bingo_claims...');
+          final participantId = event.data['participant_id'] as String?;
+          // Aceita tanto 'claim_type' quanto 'bingo_type' vindo do payload
+          final claimType = (event.data['claim_type'] as String?) ?? (event.data['bingo_type'] as String?);
+
+          if (participantId == null || participantId.isEmpty || claimType == null || claimType.isEmpty) {
+            debugLog('Payload inválido para claimWin: participant_id ou claim_type ausente');
+            return;
+          }
+          // 1) Tenta via API admin (usa service role e evita bloqueios de RLS)
+          try {
+            final uri = Uri.parse('$kBingoAdminUrl/api/admin/claims');
+            final resp = await http.post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'game_id': _currentGameId,
+                'participant_id': participantId,
+                'claim_type': claimType,
+              }),
+            );
+            if (resp.statusCode >= 200 && resp.statusCode < 300) {
+              debugLog('✅ Claim enviado via API admin com sucesso (status ${resp.statusCode})');
+              break;
+            } else {
+              debugLog('API admin falhou (${resp.statusCode}): ${resp.body}. Tentando inserir direto no Supabase...');
+            }
+          } catch (e) {
+            debugLog('Falha ao enviar via API admin: $e. Tentando insert direto...');
+          }
+
+          // 2) Fallback: tenta inserir direto (pode falhar por RLS se não autenticado)
+          await _client.from('bingo_claims').insert({
             'game_id': _currentGameId,
-            'name': event.data['name'] ?? 'Jogador',
+            'participant_id': participantId,
+            'bingo_type': claimType,
+            'validated': false,
           });
           break;
         default:

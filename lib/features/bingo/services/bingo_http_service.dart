@@ -95,8 +95,9 @@ class BingoHttpService implements BingoRealtimeService {
             }
           }
 
-          // Emitir evento de sincronização
+          // Emitir evento de sincronização (inclui gameId)
           _controller.add(BingoEvent(BingoEventType.syncState, {
+            'gameId': _currentGameId,
             'prize': _lastPrize == null ? null : {
               'id': _lastPrize!.id,
               'title': _lastPrize!.title,
@@ -219,6 +220,10 @@ class BingoHttpService implements BingoRealtimeService {
         body: jsonEncode({
           'name': data['name'] ?? 'Cliente',
           'timestamp': data['timestamp'] ?? DateTime.now().toIso8601String(),
+          // Informações adicionais para o painel admin web (se suportado)
+          if (data['participant'] != null) 'participant': data['participant'],
+          if (data['prize'] != null) 'prize': data['prize'],
+          if (data['winDetails'] != null) 'winDetails': data['winDetails'],
         }),
       );
     } catch (e) {

@@ -52,6 +52,15 @@ class BingoCard {
     return changed;
   }
 
+  // Limpa todas as marcações da cartela, mantendo o espaço livre marcado
+  void clearMarks() {
+    for (int r = 0; r < 5; r++) {
+      for (int c = 0; c < 5; c++) {
+        marked[r][c] = (r == 2 && c == 2);
+      }
+    }
+  }
+
   bool hasBingo() {
     if (isLocked) return false; // Não pode ter BINGO se bloqueada
     
@@ -71,6 +80,50 @@ class BingoCard {
     if (List.generate(5, (i) => marked[i][i]).every((m) => m)) return true;
     if (List.generate(5, (i) => marked[i][4 - i]).every((m) => m)) return true;
     return false;
+  }
+
+  // Verifica se a cartela está totalmente preenchida (cartela cheia)
+  bool isFullCard() {
+    for (int r = 0; r < 5; r++) {
+      for (int c = 0; c < 5; c++) {
+        if (!marked[r][c]) return false;
+      }
+    }
+    return true;
+  }
+
+  // Retorna um resumo detalhado das condições de vitória atingidas
+  Map<String, dynamic> winSummary() {
+    final rows = <int>[];
+    final cols = <int>[];
+    bool diagMain = true;
+    bool diagAnti = true;
+
+    for (int r = 0; r < 5; r++) {
+      if (marked[r].every((m) => m)) rows.add(r);
+    }
+    for (int c = 0; c < 5; c++) {
+      bool all = true;
+      for (int r = 0; r < 5; r++) {
+        if (!marked[r][c]) { all = false; break; }
+      }
+      if (all) cols.add(c);
+    }
+
+    for (int i = 0; i < 5; i++) {
+      if (!marked[i][i]) { diagMain = false; break; }
+    }
+    for (int i = 0; i < 5; i++) {
+      if (!marked[i][4 - i]) { diagAnti = false; break; }
+    }
+
+    return {
+      'rows': rows, // índices 0..4
+      'cols': cols, // índices 0..4
+      'diagMain': diagMain,
+      'diagAnti': diagAnti,
+      'fullCard': isFullCard(),
+    };
   }
 
   Map<String, dynamic> toJson() {
@@ -142,6 +195,13 @@ class BingoCardManager {
     }
   }
 
+  // Limpa marcações em todas as cartelas
+  void clearAllMarks() {
+    for (var card in _cards) {
+      card.clearMarks();
+    }
+  }
+
   List<BingoCard> getCardsWithBingo() {
     return _cards.where((card) => card.hasBingo()).toList();
   }
@@ -160,6 +220,20 @@ class BingoCardManager {
     
     for (int i = 0; i < lockStates.length; i++) {
       _cards.add(BingoCard.standard(isLocked: lockStates[i]));
+    }
+  }
+
+  // Bloqueia uma cartela específica
+  void lockCard(int index) {
+    if (index >= 0 && index < _cards.length) {
+      _cards[index].isLocked = true;
+    }
+  }
+
+  // Garante que somente a cartela 0 (primeira) fique desbloqueada
+  void lockAllExceptFirst() {
+    for (int i = 0; i < _cards.length; i++) {
+      _cards[i].isLocked = i != 0 ? true : false;
     }
   }
 

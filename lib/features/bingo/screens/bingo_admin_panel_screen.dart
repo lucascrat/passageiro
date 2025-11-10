@@ -462,7 +462,50 @@ class _BingoAdminPanelScreenState extends State<BingoAdminPanelScreen> {
                   const SizedBox(height: 8),
                   if (_winners.isEmpty)
                     const ListTile(leading: Icon(Icons.info_outline), title: Text('Nenhum ganhador até o momento'))
-                  else ..._winners.map((w) => ListTile(leading: const Icon(Icons.emoji_events), title: Text(w))),
+                  else ..._winners.map((w) {
+                    // Tenta extrair detalhes do texto composto
+                    final parts = w.split(' | ');
+                    String? vencedor;
+                    String? premio;
+                    String? linhas;
+                    String? colunas;
+                    String? cheia;
+
+                    for (final p in parts) {
+                      final kv = p.split(':');
+                      if (kv.length >= 2) {
+                        final key = kv[0].trim().toLowerCase();
+                        final val = p.substring(p.indexOf(':') + 1).trim();
+                        if (key.contains('vencedor')) vencedor = val;
+                        if (key.contains('prêmio') || key.contains('premio')) premio = val;
+                        if (key.contains('linhas')) linhas = val;
+                        if (key.contains('colunas')) colunas = val;
+                        if (key.contains('cartela cheia')) cheia = val;
+                      }
+                    }
+
+                    return Card(
+                      elevation: 0,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        leading: const Icon(Icons.emoji_events),
+                        title: Text(vencedor ?? w),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (premio != null && premio!.isNotEmpty)
+                              Text('Prêmio: $premio'),
+                            if (linhas != null && linhas!.isNotEmpty)
+                              Text('Linhas: $linhas'),
+                            if (colunas != null && colunas!.isNotEmpty)
+                              Text('Colunas: $colunas'),
+                            if (cheia != null && cheia!.isNotEmpty)
+                              Text('Cartela cheia: $cheia'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
