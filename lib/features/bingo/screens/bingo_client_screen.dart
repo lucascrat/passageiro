@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -281,6 +282,15 @@ class _BingoClientScreenState extends State<BingoClientScreen> {
       _drawnNumbers.addAll(drawnNumbers);
       _connected = true;
     });
+
+    // Em modo debug, se não houver números (novo jogo), resetar cartelas
+    if (kDebugMode && drawnNumbers.isEmpty) {
+      for (int i = 0; i < _cardManager.cardCount; i++) {
+        _cardManager.generateNewCard(i);
+      }
+      _persistCards();
+      debugLog('🧼 Debug: cartelas reiniciadas ao sincronizar novo jogo sem números.');
+    }
 
     // Marcar todos os números sorteados em todas as cartelas
     bool anyCardChanged = false;
